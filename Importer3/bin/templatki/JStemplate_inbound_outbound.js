@@ -37,10 +37,3 @@ var INBOUND_OUTBOUND_MAP  = {
 	>{PLACE_TO_PASTE}<
 
 };
-
-
-let arr=INBOUND_OUTBOUND_MAP["aerver.html"];
-
-
-console.log(">>>IO:")
-console.log(arr)

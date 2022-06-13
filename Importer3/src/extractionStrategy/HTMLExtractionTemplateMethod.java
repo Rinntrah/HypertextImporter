@@ -10,7 +10,7 @@ import org.jsoup.select.Elements;
 import util.ScanFolder.VisitedNode;
 import util.Util;
 
-public class ExtractionTemplateMethod {
+public class HTMLExtractionTemplateMethod {
 
 	void crash() {
 		throw new IllegalStateException();

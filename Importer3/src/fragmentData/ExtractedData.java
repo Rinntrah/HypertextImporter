@@ -7,7 +7,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import extractionStrategy.CagedTextsTemplateMethod;
-import extractionStrategy.ExtractionTemplateMethod;
+import extractionStrategy.HTMLExtractionTemplateMethod;
 import util.ScanFolder.VisitedNode;
 
 public class ExtractedData {
@@ -15,7 +15,7 @@ public class ExtractedData {
 	public String wholeHTMLString;
 	public Document htmlDocument;
 	public Element lexiaElement;
-	public ExtractionTemplateMethod extractionStrategy = new CagedTextsTemplateMethod();
+	public HTMLExtractionTemplateMethod extractionStrategy = new CagedTextsTemplateMethod();
 	public String fileName;
 
 	public ExtractedData(VisitedNode visitedNode) {

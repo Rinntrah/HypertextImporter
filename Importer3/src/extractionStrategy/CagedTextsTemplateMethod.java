@@ -4,7 +4,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-public class CagedTextsTemplateMethod extends ExtractionTemplateMethod {
+public class CagedTextsTemplateMethod extends HTMLExtractionTemplateMethod {
 
 	@Override
 	public Element findLexiaElement(Document document) {
@@ -17,5 +17,7 @@ public class CagedTextsTemplateMethod extends ExtractionTemplateMethod {
 
 		return bodyElement;
 	}
+	
+	
 
 }

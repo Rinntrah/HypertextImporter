@@ -11,5 +11,10 @@ public class Util {
 		byte[] encoded = Files.readAllBytes(file.toPath());
 		return new String(encoded, encoding);
 	}
-	
+
+	public static String REPL(String tag, String source, String replacement) {
+		source = source.replace(tag, replacement);
+		return source;
+	}
+
 }
