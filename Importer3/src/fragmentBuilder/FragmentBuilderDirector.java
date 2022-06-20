@@ -11,6 +11,9 @@ public class FragmentBuilderDirector {
 		builder.setFragmentTitle(extractedData.fileName);// !
 		builder.setLexia(extractedData.lexiaElement.toString());
 
-		return builder.end();
+		BuiltFragment end = builder.end();
+		end.htmlFileAsString = end.htmlFileAsString.toString().replace("[FILE_NAME]", "" + extractedData.fileName);
+
+		return end;
 	}
 }

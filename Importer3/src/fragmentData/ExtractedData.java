@@ -17,6 +17,8 @@ public class ExtractedData {
 	public Element lexiaElement;
 	public HTMLExtractionTemplateMethod extractionStrategy = new CagedTextsTemplateMethod();
 	public String fileName;
+	public File file;
+	public String defaultLinkDotHTML="";
 
 	public ExtractedData(VisitedNode visitedNode) {
 		extractFromHTML(visitedNode);
@@ -24,6 +26,7 @@ public class ExtractedData {
 
 	public void extractFromHTML(VisitedNode visitedNode) {
 		this.fileName = visitedNode.file.getName();
+		this.file=visitedNode.file;
 		this.wholeHTMLString = getHTMLContent(visitedNode);
 		this.htmlDocument = parseHTML();
 		this.lexiaElement = getLexiaElement();

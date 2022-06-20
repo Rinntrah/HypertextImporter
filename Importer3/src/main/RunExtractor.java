@@ -1,7 +1,11 @@
 package main;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -9,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 
 import org.jsoup.nodes.Element;
 
@@ -25,7 +28,7 @@ import util.Util;
 public class RunExtractor {
 
 	static String ROOT = "";
-	static String TEMPLATE_ROOT = "W:\\ws\\HypertextImporter\\Importer3\\src\\templatki\\";
+	static String TEMPLATE_ROOT = "W:\\ws\\HypertextImporter\\Importer3\\WORK\\templatki\\";
 
 	public static void log(Object s) {
 		System.out.println(s);
@@ -42,8 +45,8 @@ public class RunExtractor {
 		result = ScanFolder.keepOnlyFilesWithExtension(result, "html");
 		log("ScanFolder result:" + result);
 
-		log("Printing tree.js, it is not saved to a file tho.");
-		TreeGen.main(new String[] { ROOT });
+//		log("Printing tree.js, it is not saved to a file tho.");
+//		TreeGen.main(new String[] { ROOT });
 
 		// Traverse throught html files and gather useful data
 		final ArrayList<ExtractedData> extracted = extractData(result);
@@ -57,6 +60,8 @@ public class RunExtractor {
 		log("Reading template");
 		final String TemplateHtmlInString = readToOneBigString(TEMPLATE_ROOT + "template.html");
 
+		correctLexiaLinksByRemovingParentPath(extracted);
+
 		log("Pasting extracted data into template");
 		generateHTMLFromData(outDir, TemplateHtmlInString, extracted);
 
@@ -65,6 +70,26 @@ public class RunExtractor {
 
 		// log("Pasting CSS");
 		// pasteCSS(outDir);
+	}
+
+	public static void correctLexiaLinksByRemovingParentPath(ArrayList<ExtractedData> extractedDataList) {
+
+		extractedDataList.forEach(new Consumer<ExtractedData>() {
+			@Override
+			public void accept(ExtractedData extractedData) {
+				List<Element> allA = findAll_A(extractedData.lexiaElement);
+				for (Element next : allA) {
+					final String val = next.attr("href");
+					final String[] arr = val.split("/");
+
+					next.attr("href", arr[arr.length - 1]);
+
+				}
+//				extractedData.lexiaElement.getAllElements().attr("href", "XD");				
+
+			}
+		});
+
 	}
 
 	private static ArrayList<ExtractedData> extractData(ArrayList<VisitedNode> visited) {
@@ -104,7 +129,9 @@ public class RunExtractor {
 			public void accept(ExtractedData next) {
 				final BuiltFragment output = FragmentBuilderDirector.makeOutputFragment(next, templateHTML);
 
-				final File outFile = new File(outDir.getAbsolutePath() + "/" + next.fileName);
+				String targetPath = outDir.getAbsolutePath() + "\\" + next.file.getName();
+				System.out.println("saving:" + targetPath);
+				final File outFile = new File(targetPath);
 				StringToFileSaveUtils.trySaveDeleteIfExist(output.htmlFileAsString, outFile);
 			}
 		});
@@ -116,6 +143,7 @@ public class RunExtractor {
 		generateJSFileNameToFragmentName(outDir, extractedDataList);
 		generateJSParentFolderTree(outDir, extractedDataList);
 		generateJSDefaultAndOptionalLinks(outDir, extractedDataList);
+		generateJSGuards(outDir, extractedDataList);
 		generateSTATICJSDataFiles(outDir, extractedDataList);
 	}
 
@@ -147,23 +175,31 @@ public class RunExtractor {
 				String wzor = "";
 				wzor += "\"" + extractedData.fileName + "\"" + ":[\n";
 
-				for (Element NEXT : lexiaElement.getAllElements()) {
+				for (Element nxtA : findAll_A(lexiaElement)) {
 
-					for (Element nxtA : findAll_A(NEXT)) {
+					{
 
 						final Element parent = nxtA.parent();
 						if (parent != null && parent.tagName().equals("p") && parent.text().contains("default")) {
+							// Do something with found DEFAULT-LINK
 							System.err.println(extractedData.fileName + "<<<DEFAULT-LINK:" + nxtA.attr("href") + "---"
 									+ nxtA.text());
+							extractedData.defaultLinkDotHTML = nxtA.attr("href");
+							
 						} else {
 							String href = nxtA.attr("href");
 							if (href.isEmpty() == false) {
 								System.err.println(extractedData.fileName + "<<<OUT-LINK: href=" + href + "--- text="
 										+ nxtA.text());
 
-								String re = "new OutLink(\"TGT_FILENAME\", \"REV_TITLE\", null,null),";
-								re = re.replace("TGT_FILENAME", href);
-								re = re.replace("REV_TITLE", escapeCudzyslow(nxtA.text()));
+								String[] splitted = href.split("/");
+								href = splitted[splitted.length - 1];
+
+								String re = "new OutLink(\"[TGT_FILENAME]\", \"[REV_TITLE]\", null,null),";
+
+								re = re.replace("[TGT_FILENAME]", href);
+								re = re.replace("[REV_TITLE]", escapeCudzyslow(nxtA.text()));
+
 								wzor += re;
 							}
 
@@ -201,49 +237,131 @@ public class RunExtractor {
 	}
 
 	private static void generateJSFileNameToFragmentName(File outDir, ArrayList<ExtractedData> extractedDataList) {
-
-	}
-
-	private static void generateJSParentFolderTree(File outDir, ArrayList<ExtractedData> extractedDataList) {
-		// 2.FILE_NAME_TO_FRAGMENT_NAME.js ---- var INBOUND_OUTBOUND_MAP = {
-
-	}
-
-	private static void generateJSDefaultAndOptionalLinks(File outDir, ArrayList<ExtractedData> extractedDataList) {
-		String template = "var TREE = {INSERT_HERE}";
+		String template = "var FILE_NAME_TO_FRAGMENT_NAME = {INSERT_HERE}";
 
 		String[] arr = new String[1];
 		arr[0] = "" + ROOT;
 		TreeGen.main(arr);
 		log("TreeGen.FILE_NAME_TO_NAME:" + TreeGen.FILE_NAME_TO_NAME);
 
-		String data = "";
+		String data = "";// new String(new byte[10], StandardCharsets.UTF_8);
 		for (Entry<String, String> string : TreeGen.FILE_NAME_TO_NAME.entrySet()) {
-			String wzor = "\n" + "\"A\"" + ":" + "\"B\"";
+			String wzor = "\n" + "\"A\"" + ":" + "\"[BBBBBBBB]\"";
 			wzor = wzor.replace("A", escapeCudzyslow(string.getKey()));
-			wzor = wzor.replace("B", escapeCudzyslow(string.getKey()));
+//			String[] splitted = string.getValue().split("/");
+//splitted[splitted.length - 1]
+			wzor = wzor.replace("[BBBBBBBB]", escapeCudzyslow(string.getValue()));
+
 			data += wzor + ",";
 		}
 		template = template.replace("INSERT_HERE", data);
 
-		File outFile = new File(outDir + "\\tree.js");
+		File outFile = new File(outDir + "\\FileNameToFragmentName.js");
+		template += "\n";
+		template += "function htmlFileNameToFragmentName(x) {\r\n" + "    return FILE_NAME_TO_FRAGMENT_NAME[x];\r\n"
+				+ "}";
+
 		StringToFileSaveUtils.trySaveDeleteIfExist(template, outFile);
 	}
 
+	private static void generateJSParentFolderTree(File outDir, ArrayList<ExtractedData> extractedDataList) {
+		String[] arr = new String[1];
+		arr[0] = "" + ROOT;
+		TreeGen.main(arr);
+
+		File outFile = new File(outDir + "\\ParentFolderTree.js");
+		StringToFileSaveUtils.trySaveDeleteIfExist(TreeGen.TreeJSResult, outFile);
+
+	}
+
+	private static void generateJSDefaultAndOptionalLinks(File outDir, ArrayList<ExtractedData> extractedDataList) {
+		String template = "class FragmentHrefs{\r\n" + "	constructor(map){\r\n" + "		this.map=map;\r\n"
+				+ "	}\r\n" + "	\r\n" + "	map=null\r\n" + "	\r\n" + "	toString(){\r\n"
+				+ "		let clzname=this.constructor.name;\r\n" + "		return \"\"+clzname+\"map=\"+map;\r\n"
+				+ "	}\r\n" + "	\r\n" + "}\r\n" + "\r\n"
+				+ "//reprezentuje hrefy, które wczeœniej znajdowa³y sie w stopce\r\n" + "var FRAGMENT_HREFS  = {\r\n"
+				+ "	//\"TEST.html\":{0:\"something.html\",1:\"otherthings.html\"},\r\n" + "	>{PLACE_TO_PASTE}<\r\n"
+				+ "\r\n" + "};\r\n" + "\r\n" + "";
+
+		String data = "";
+		// //"TEST.html":{0:"something.html",1:"otherthings.html"},
+		// TYLKO DEFAULT LIKI
+		// "TEST.html":{0:"something.html"},
+
+		for (ExtractedData extractedData : extractedDataList) {
+			String wzor = "\n" + "\"[A]\"" + ":" + "{0:\"[BBBBBBBB]\"}";
+			wzor = wzor.replace("[A]", escapeCudzyslow("" + extractedData.fileName));
+			wzor = wzor.replace("[BBBBBBBB]", escapeCudzyslow("" + extractedData.defaultLinkDotHTML));
+			data += wzor + ",";
+		}
+
+		template = template.replace(">{PLACE_TO_PASTE}<", data);
+
+		final File outFile = new File(outDir + "\\DefaultAndOptionalLinks.js");
+		StringToFileSaveUtils.trySaveDeleteIfExist(template, outFile);
+	}
+
+	private static void generateJSGuards(File outDir, ArrayList<ExtractedData> extractedDataList) {
+		String template = "class Guard{\r\n" + "	constructor(q,rev,title,txt){\r\n" + "		this.q=q;\r\n"
+				+ "	}\r\n" + "	\r\n" + "	q=null\r\n" + "	\r\n" + "}\r\n" + "\r\n" + "var GUARDS  = {\r\n"
+				+ "	//\"NAZWA.html\":\"tu idzie guard\",\r\n" + ">{PLACE_TO_PASTE}<\r\n" + "};\r\n" + "\r\n"
+				+ "console.log(\"GUARDS:\")\r\n" + "\r\n" + "";
+
+		String data = "";
+
+		for (ExtractedData extractedData : extractedDataList) {
+			String wzor = "\n" + "\"A\"" + ":" + "\"[BBBBBBBB]\"";
+			wzor = wzor.replace("A", escapeCudzyslow(extractedData.fileName));
+			wzor = wzor.replace("[BBBBBBBB]", escapeCudzyslow("0"));
+			data += wzor + ",";
+		}
+
+		template = template.replace(">{PLACE_TO_PASTE}<", data);
+
+		final File outFile = new File(outDir + "\\Guards.js");
+		StringToFileSaveUtils.trySaveDeleteIfExist(template, outFile);
+	}
+
+	private static void copy(File src, File dest) throws IOException {
+		InputStream is = null;
+		OutputStream os = null;
+		try {
+			is = new FileInputStream(src);
+			os = new FileOutputStream(dest);
+			// buffer size 1K byte[]
+			byte[] buf = new byte[1024];
+			int bytesRead;
+			while ((bytesRead = is.read(buf)) > 0) {
+				os.write(buf, 0, bytesRead);
+			}
+		} finally {
+			is.close();
+			os.close();
+		}
+	}
+
+	public static void xcopy(final File sourceDir, final File outDir) {
+		for (final File next : sourceDir.listFiles()) {
+			final File dest = new File(outDir.getAbsolutePath() + "\\" + next.getName());
+			if (next.isDirectory()) {
+				File targetDir = new File(outDir.getAbsolutePath() + "\\" + next.getName());
+				targetDir.mkdirs();
+				xcopy(next, targetDir);
+				continue;
+			}
+			try {
+				copy(next, dest);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	private static void generateSTATICJSDataFiles(File outDir, ArrayList<ExtractedData> extractedDataList) {
-		String staticFilesPath = TEMPLATE_ROOT + "static";
+		final String staticFilesPath = TEMPLATE_ROOT + "static";
 
-//		File source = new File(TEMPLATE_ROOT + "static");
-//		File dest = outDir
-//		try {
-//			FileUtils.copyDirectory(source, dest);
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//		}
-
-//		for (File next : f.listFiles()) {
-//			Files.write(outDir, next, StandardOpenOption.CREATE_NEW);
-//		}
+		final File source = new File(staticFilesPath);
+		xcopy(source, outDir);
 
 		// Static JS files
 		// Inne sta³e bez kontentu
